@@ -52,6 +52,7 @@ async function signup (req, res) {
   let result = { status: "KO", message: "Unkown type" }
 
   if (receivedPOST) {
+    console.log("!!")
     var regex = /^(\d{9})$/;
     if (regex.test(receivedPOST.phoneNumber)){
       const existe = await db.query("select count(*) from Users where userPhoneNumber="+receivedPOST.phoneNumber);
@@ -62,7 +63,7 @@ async function signup (req, res) {
           if (regex.test(receivedPOST.lastName) && receivedPOST.lastName.trim()!=""){
             regex = /^\w+([.-_+]?\w+)*@\w+([.-]?\w+)*(\.\w{2,10})+$/;
             if (regex.test(receivedPOST.email)){
-              await db.query("insert into Users(userName, userLastName, userEmail, userPhoneNumber, balance) values('"+ receivedPOST.name +"', '"+ receivedPOST.lastName +"', '"+ receivedPOST.email +"', "+ receivedPOST.phoneNumber +", '"+ receivedPOST.balance +"');")
+              await db.query("insert into Users(userPhoneNumber, userName, userLastName, userEmail, balance) values('"+ receivedPOST.phoneNumber +"', '"+ receivedPOST.name +"', '"+ receivedPOST.lastName +"', '"+ receivedPOST.email +"', '"+ receivedPOST.balance +"');")
               result = { status: "OK", message: "Insert" }
             }
             else{
