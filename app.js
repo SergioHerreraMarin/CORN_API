@@ -274,6 +274,8 @@ async function finishPayment (req, res) {
                       }else{
                         const balance = await db.query("select balance from Users where userPhoneNumber='"+receivedPOST.user_id+"'");
                         const precio = await db.query("select amount from Transactions where token='"+receivedPOST.transaction_token+"'");
+                        const id_usu_destino = await db.query("select destination from Transactions where token='"+receivedPOST.transaction_token+"'");
+                        const balanceDestino = await db.query("select balance from Users where userPhoneNumber='"+id_usu_destino+"'");
                         if (balance[0]["balance"]-precio[0]["amount"]<0){
                           result= {status: "ERROR", message: "Refused transaction due to lack of balance"}
                         }else{
@@ -282,8 +284,10 @@ async function finishPayment (req, res) {
                           const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                           const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
                           var cantidad=balance[0]["balance"]-precio[0]["amount"];
+                          var cantidadDestino=balanceDestino[0]["balance"]+precio[0]["amount"];
                           await db.query("update Transactions set origin ='"+receivedPOST.user_id+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
                           await db.query("update Users set balance='"+cantidad+"' where userPhoneNumber='"+receivedPOST.user_id+"'");
+                          await db.query("update Users set balance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino+"'");
                           result = {status: "OK", message: "Transaction accepted"}
                         }
                       }
