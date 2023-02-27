@@ -284,7 +284,7 @@ async function finishPayment (req, res) {
                           const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                           const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
                           var cantidad=balance[0]["balance"]-precio[0]["amount"];
-                          var cantidadDestino=balanceDestino[0]["balance"]+precio[0]["amount"];
+                          var cantidadDestino=Integer(balanceDestino[0]["balance"])+Integer(precio[0]["amount"]);
                           await db.query("update Transactions set origin ='"+receivedPOST.user_id+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
                           await db.query("update Users set balance='"+cantidad+"' where userPhoneNumber='"+receivedPOST.user_id+"'");
                           await db.query("update Users set balance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
