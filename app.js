@@ -43,54 +43,113 @@ function shutDown() {
 // })
 // Init objects
 db.init({
-  host: process.env.MYSQLHOST || "containers-us-west-120.railway.app",
-  port: process.env.MYSQLPORT || 7188,
+  host: process.env.MYSQLHOST || "containers-us-west-178.railway.app",
+  port: process.env.MYSQLPORT || 6894,
   user: process.env.MYSQLUSER || "root",
-  password: process.env.MYSQLPASSWORD || "4LVemATMSh2XEU8bJchj",
+  password: process.env.MYSQLPASSWORD || "RK2jY5ibX9hNpD3NdHCq",
   database: process.env.MYSQLDATABASE || "railway"
 })
 ws.init(httpServer, port, db)
 
+function createSessionToken(){
+  let charsList = [];
+  let tokenSize = 33;
+  let token = "";
+
+  for(i = 0; i < 10; i ++){
+    charsList.push(i);
+  }
+
+  for(i = 65; i <= 90; i++) {
+    charsList.push(String.fromCharCode(i));
+  }
+
+  for(i = 97; i <= 122; i++) {
+    charsList.push(String.fromCharCode(i));
+  }
+  
+  for(i = 0; i < tokenSize - 1; i++){
+    let randomNum = Math.round(Math.random()*(charsList.length - 1));
+    token += charsList[randomNum];
+  }
+
+  return token;
+}
+
+// Define routes
+app.post('/api/login', login)
+async function login (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    if (receivedPOST.email.trim()==""){
+      result = {status: "ERROR", message: "Es requereix un correu electrònic"}
+    }else{
+      let contador = await db.query("select count(*) as cuenta from Users where userEmail='"+receivedPOST.email+"' and userPassword='"+receivedPOST.password+"'")
+      if (contador[0]["cuenta"]>0){
+        let token=createSessionToken();
+        await db.query("update Users set userSessionToken='"+token+"'where userEmail='"+receivedPOST.email+"' and userPassword='"+receivedPOST.password+"'");
+        result = {status: "OK", message: "Sessió iniciada", session_token: token}
+      }else{
+        result = {status: "ERROR", message: "El correu i/o la contrasenya estan malament"}
+      }
+    }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+}
 
 // Define routes
 app.post('/api/signup', signup)
 async function signup (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
-  let result = { status: "KO", message: "Unkown type" }
+  let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
     var regex = /^(\d{9})$/;
-    if (regex.test(receivedPOST.phoneNumber)){
-      const existe = await db.query("select count(*) from Users where userPhoneNumber="+receivedPOST.phoneNumber);
+    if (regex.test(receivedPOST.phone)){
+      const existe = await db.query("select count(*) from Users where userPhoneNumber="+receivedPOST.phone+" or userEmail='"+receivedPOST.email+"'");
       if (Object.values(existe[0])==0){
         regex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;
         if (regex.test(receivedPOST.name)){
           regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;
-          if (regex.test(receivedPOST.lastName)){
-            if (receivedPOST.lastName.trim()==""){
-              result = {status: "ERROR", message: "Surname is not valid"}
+          if (regex.test(receivedPOST.surname)){
+            if (receivedPOST.surname.trim()==""){
+              result = {status: "ERROR", message: "El cognom no és vàlid"}
             }else{
               regex = /^\w+([.-_+]?\w+)*@\w+([.-]?\w+)*(\.\w{2,10})+$/;
               if (regex.test(receivedPOST.email)){
-                await db.query("insert into Users(userName, userLastName, userEmail, userPhoneNumber, balance) values('"+ receivedPOST.name +"', '"+ receivedPOST.lastName +"', '"+ receivedPOST.email +"', "+ receivedPOST.phoneNumber +", '"+ receivedPOST.balance +"');")
-                result = { status: "OK", message: "Insert" }
+                regex = /^([a-zA-Z0-9 _-]+)$/;
+                if (regex.test(receivedPOST.password)){
+                  const fecha = new Date();
+                  const opciones = { timeZone: "Europe/Madrid" };
+                  const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
+                  const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
+                  await db.query("insert into Users(userPhoneNumber,userName, userLastName, userEmail, userBalance, userStatus, userStatusModifyTime, userPassword) values('"+ receivedPOST.phone+"', '"+receivedPOST.name +"', '"+ receivedPOST.surname +"', '"+ receivedPOST.email +"', "+ 100 +", 'active', '"+fechaSQL+"', '"+receivedPOST.password+"');");
+                  result = { status: "OK", message: "Usuari creat correctament" }
+                } else{
+                  result = {status: "ERROR", message: "La contrasenya només pot contenir lletres majúscules i minúscules i números"}
+                }
               }
               else{
-                result = {status: "ERROR", message: "Email is not valid"}
+                result = {status: "ERROR", message: "El correu no és vàlid"}
               }
             }
           }else{
-            result = {status: "ERROR", message: "Surname is not valid"}
+            result = {status: "ERROR", message: "El cognom no és vàlid"}
           }
         }else{
-          result = {status: "ERROR", message: "Name is not valid"}
+          result = {status: "ERROR", message: "El nom no és vàlid"}
         }
       } else{
-        result = {status: "OK", message: "Exist"};
+        result = {status: "ERROR", message: "Ja existeix un usuari amb aquest número de telèfon o correu electrònic"};
       }
     }else{
-      result = {status: "ERROR", message: "Phone is not valid"}
+      result = {status: "ERROR", message: "El número de telèfon no és vàlid"}
     }
         
     }
@@ -104,7 +163,7 @@ app.post('/api/get_profiles', getProfiles)
 async function getProfiles (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
-  let result = { status: "KO", message: "Unkown type" }
+  let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
     const usuarios = await db.query("select * from Users");
@@ -120,7 +179,7 @@ app.post('/api/setup_payment', setupPayment)
 async function setupPayment (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
-  let result = { status: "KO", result: "Unkown type" }
+  let result = { status: "ERROR", message: "Unkown type" }
   let comprobacion=false;
   if (receivedPOST) {
     if(receivedPOST.user_id==""){
@@ -203,7 +262,7 @@ app.post('/api/start_payment', startPayment)
 async function startPayment (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
-  let result = { status: "KO", result: "Unkown type" }
+  let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
     if(receivedPOST.user_id==""){
@@ -250,7 +309,7 @@ app.post('/api/finish_payment', finishPayment)
 async function finishPayment (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
-  let result = { status: "KO", result: "Unkown type" }
+  let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
     if(receivedPOST.user_id==""){
@@ -272,11 +331,11 @@ async function finishPayment (req, res) {
                       if (receivedPOST.amount<=0){
                         result = {status: "ERROR", message: "Error in the verification of the quantity"}
                       }else{
-                        const balance = await db.query("select balance from Users where userPhoneNumber='"+receivedPOST.user_id+"'");
+                        const balance = await db.query("select userBalance from Users where userPhoneNumber='"+receivedPOST.user_id+"'");
                         const precio = await db.query("select amount from Transactions where token='"+receivedPOST.transaction_token+"'");
                         const id_usu_destino = await db.query("select destination from Transactions where token='"+receivedPOST.transaction_token+"'");
-                        const balanceDestino = await db.query("select balance from Users where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
-                        if (balance[0]["balance"]-precio[0]["amount"]<0){
+                        const balanceDestino = await db.query("select userBalance from Users where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                        if (balance[0]["userBalance"]-precio[0]["amount"]<0){
                           result= {status: "ERROR", message: "Refused transaction due to lack of balance"}
                         }else{
                           const fecha = new Date();
@@ -284,10 +343,10 @@ async function finishPayment (req, res) {
                           const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                           const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
                           var cantidad=balance[0]["balance"]-precio[0]["amount"];
-                          var cantidadDestino=Number(balanceDestino[0]["balance"])+Number(precio[0]["amount"]);
+                          var cantidadDestino=Number(balanceDestino[0]["userBalance"])+Number(precio[0]["amount"]);
                           await db.query("update Transactions set origin ='"+receivedPOST.user_id+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
-                          await db.query("update Users set balance='"+cantidad+"' where userPhoneNumber='"+receivedPOST.user_id+"'");
-                          await db.query("update Users set balance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                          await db.query("update Users set userBalance='"+cantidad+"' where userPhoneNumber='"+receivedPOST.user_id+"'");
+                          await db.query("update Users set userBalance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
                           result = {status: "OK", message: "Transaction accepted"}
                         }
                       }
@@ -316,6 +375,29 @@ async function finishPayment (req, res) {
         result = {status: "ERROR", message: "User_id is not valid"}
       }
     }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
+app.post('/api/transaccions', transaccions)
+async function transaccions (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    const contador = await db.query("select count(*) as contador from Users where userPhoneNumber="+receivedPOST.phone)
+    if (contador[0]["contador"]>0){
+      const transacciones = await db.query("select * from Transactions where (origin="+receivedPOST.phone+" or destination="+receivedPOST.phone+") and accepted is not null")
+      result = {status: "OK", message: "Transacciones", transactions: transacciones}
+    } else{
+      result = {status: "ERROR", message: "Aquest usuari no existeix"}
+    }
+
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' })
