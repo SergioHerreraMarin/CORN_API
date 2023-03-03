@@ -324,8 +324,6 @@ async function finishPayment (req, res) {
                       }else{
                         const balance = await db.query("select userBalance from Users where userSessionToken='"+receivedPOST.user_id+"'");
                         const precio = await db.query("select amount from Transactions where token='"+receivedPOST.transaction_token+"'");
-                        const id_usu_destino = await db.query("select destination from Transactions where token='"+receivedPOST.transaction_token+"'");
-                        const balanceDestino = await db.query("select userBalance from Users where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
                         if (balance[0]["userBalance"]-precio[0]["amount"]<0){
                           result= {status: "ERROR", message: "Transacció rebutjada perquè falten diners"}
                         }else{
@@ -333,12 +331,21 @@ async function finishPayment (req, res) {
                           const opciones = { timeZone: "Europe/Madrid" };
                           const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                           const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
-                          var cantidad=balance[0]["balance"]-precio[0]["amount"];
-                          var cantidadDestino=Number(balanceDestino[0]["userBalance"])+Number(precio[0]["amount"]);
+                          var cantidad=balance[0]["userBalance"]-precio[0]["amount"];
                           const numOrigen = await db.query("select userPhoneNumber from Users where userSessionToken='"+receivedPOST.user_id+"'");
-                          await db.query("update Transactions set origin ='"+numOrigen[0]["userPhoneNumber"]+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
-                          await db.query("update Users set userBalance='"+cantidad+"' where userSessionToken='"+receivedPOST.user_id+"'");
-                          await db.query("update Users set userBalance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                          await db.query("SET autocommit=0;"); 
+                          try{
+                            await db.query("update Transactions set origin ='"+numOrigen[0]["userPhoneNumber"]+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
+                            await db.query("update Users set userBalance='"+cantidad+"' where userSessionToken='"+receivedPOST.user_id+"'");
+                            const id_usu_destino = await db.query("select destination from Transactions where token='"+receivedPOST.transaction_token+"'");
+                            const balanceDestino = await db.query("select userBalance from Users where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                            var cantidadDestino=Number(balanceDestino[0]["userBalance"])+Number(precio[0]["amount"]);
+                            await db.query("update Users set userBalance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                            await db.query("commit;");
+                          } catch(error){
+                            await db.query("rollback;");
+                          }
+                          await db.query("SET autocommit=1;"); 
                           result = {status: "OK", message: "Transacció aceptada"}
                         }
                       }
