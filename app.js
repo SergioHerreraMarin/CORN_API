@@ -43,10 +43,10 @@ function shutDown() {
 // })
 // Init objects
 db.init({
-  host: process.env.MYSQLHOST || "containers-us-west-178.railway.app",
-  port: process.env.MYSQLPORT || 6894,
+  host: process.env.MYSQLHOST || "containers-us-west-99.railway.app",
+  port: process.env.MYSQLPORT || 7879,
   user: process.env.MYSQLUSER || "root",
-  password: process.env.MYSQLPASSWORD || "RK2jY5ibX9hNpD3NdHCq",
+  password: process.env.MYSQLPASSWORD || "Qqv1dUdKdMNNiZHa2CEP",
   database: process.env.MYSQLDATABASE || "railway"
 })
 ws.init(httpServer, port, db)
