@@ -129,8 +129,9 @@ async function signup (req, res) {
                   const opciones = { timeZone: "Europe/Madrid" };
                   const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                   const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
-                  await db.query("insert into Users(userPhoneNumber,userName, userLastName, userEmail, userBalance, userStatus, userStatusModifyTime, userPassword) values('"+ receivedPOST.phone+"', '"+receivedPOST.name +"', '"+ receivedPOST.surname +"', '"+ receivedPOST.email +"', "+ 100 +", 'active', '"+fechaSQL+"', '"+receivedPOST.password+"');");
-                  result = { status: "OK", message: "Usuari creat correctament" }
+                  let token=createSessionToken();
+                  await db.query("insert into Users(userPhoneNumber,userName, userLastName, userEmail, userBalance, userStatus, userStatusModifyTime, userPassword,userSessionToken) values('"+ receivedPOST.phone+"', '"+receivedPOST.name +"', '"+ receivedPOST.surname +"', '"+ receivedPOST.email +"', "+ 100 +", 'active', '"+fechaSQL+"', '"+receivedPOST.password+"', '"+token+"');");
+                  result = { status: "OK", message: "Usuari creat correctament", session_token: token}
                 } else{
                   result = {status: "ERROR", message: "La contrasenya només pot contenir lletres majúscules i minúscules i números"}
                 }
