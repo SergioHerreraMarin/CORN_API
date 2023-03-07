@@ -431,6 +431,33 @@ async function get_profile (req, res) {
 }
 
 // Define routes
+app.post('/api/logout', logout)
+async function logout (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    if (receivedPOST.session_token.trim()!=""){
+      const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
+      if (contador[0]["contador"]>0){
+        await db.query("update Users set userSessionToken=NULL where userSessionToken='"+receivedPOST.session_token+"'")
+        result = {status: "OK", message: "Sessió tancada correctament"}
+      } else{
+        result = {status: "ERROR", message: "No s'ha trobat la sessió"}
+      }
+    }else{
+      result = {status: "ERROR", message: "Es requereix token de sessio"}
+    }
+
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
 app.post('/api/get_profiles_by_status', get_profiles_by_status)
 async function get_profiles_by_status (req, res) {
 
@@ -480,4 +507,3 @@ async function get_profiles_by_range_num_transactions (req, res) {
   res.end(JSON.stringify(result))
 
 }
-
