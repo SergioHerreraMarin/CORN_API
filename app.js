@@ -130,7 +130,7 @@ async function signup (req, res) {
                   const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                   const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
                   let token=createSessionToken();
-                  await db.query("insert into Users(userPhoneNumber,userName, userLastName, userEmail, userBalance, userStatus, userStatusModifyTime, userPassword,userSessionToken) values('"+ receivedPOST.phone+"', '"+receivedPOST.name +"', '"+ receivedPOST.surname +"', '"+ receivedPOST.email +"', "+ 100 +", 'active', '"+fechaSQL+"', '"+receivedPOST.password+"', '"+token+"');");
+                  await db.query("insert into Users(userPhoneNumber,userName, userLastName, userEmail, userBalance, userStatus, userStatusModifyTime, userPassword,userSessionToken) values('"+ receivedPOST.phone+"', '"+receivedPOST.name +"', '"+ receivedPOST.surname +"', '"+ receivedPOST.email +"', "+ 100 +", 'NO_VERFICAT', '"+fechaSQL+"', '"+receivedPOST.password+"', '"+token+"');");
                   result = { status: "OK", message: "Usuari creat correctament", session_token: token}
                 } else{
                   result = {status: "ERROR", message: "La contrasenya només pot contenir lletres majúscules i minúscules i números"}
@@ -413,9 +413,9 @@ async function get_profile (req, res) {
     if (receivedPOST.session_token.trim()!=""){
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
-        const transacciones = await db.query("select * from Users where userSessionToken='"+receivedPOST.session_token+"'")
-        result = {status: "OK", message: "Les dades", email: transacciones[0]["userEmail"], name: transacciones[0]["userName"], 
-        surname: transacciones[0]["userLastName"], phone: transacciones[0]["userPhoneNumber"], validation_status: transacciones[0]["userStatus"]}
+        const datos = await db.query("select * from Users where userSessionToken='"+receivedPOST.session_token+"'")
+        result = {status: "OK", message: "Les dades", email: datos[0]["userEmail"], name: datos[0]["userName"], 
+        surname: datos[0]["userLastName"], phone: datos[0]["userPhoneNumber"], validation_status: datos[0]["userStatus"]}
       } else{
         result = {status: "ERROR", message: "Aquest usuari no existeix"}
       }
@@ -429,3 +429,55 @@ async function get_profile (req, res) {
   res.end(JSON.stringify(result))
 
 }
+
+// Define routes
+app.post('/api/get_profiles_by_status', get_profiles_by_status)
+async function get_profiles_by_status (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    const usuaris = await db.query("select * from Users where userStatus= '"+receivedPOST.status+"'")
+    result = {status: "OK", message: "Els usuaris", profiles: usuaris}
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
+app.post('/api/get_profiles_by_range_balance', get_profiles_by_range_balance)
+async function get_profiles_by_range_balance (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    const usuaris = await db.query("select * from Users where userBalance>="+receivedPOST.minBalance+" and userBalance<="+receivedPOST.maxBalance+"")
+    result = {status: "OK", message: "Els usuaris", profiles: usuaris}
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
+app.post('/api/get_profiles_by_range_num_transactions', get_profiles_by_range_num_transactions)
+async function get_profiles_by_range_num_transactions (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    const usuaris = await db.query("select users.*, count(distinct transactions.id) as total_transacciones from users inner join (select origin as user_id, id from transactions where accepted is not null union all select destination as user_id, id from transactions where accepted is not null) as transactions on users.id = transactions.user_id group by users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
+    result = {status: "OK", message: "Els usuaris", profiles: usuaris}
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
