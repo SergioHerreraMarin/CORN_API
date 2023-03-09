@@ -43,10 +43,10 @@ function shutDown() {
 // })
 // Init objects
 db.init({
-  host: process.env.MYSQLHOST || "containers-us-west-99.railway.app",
-  port: process.env.MYSQLPORT || 7879,
+  host: process.env.MYSQLHOST || "containers-us-west-31.railway.app",
+  port: process.env.MYSQLPORT || 5728,
   user: process.env.MYSQLUSER || "root",
-  password: process.env.MYSQLPASSWORD || "Qqv1dUdKdMNNiZHa2CEP",
+  password: process.env.MYSQLPASSWORD || "hMGcNTsebXK1y4ecVJD9",
   database: process.env.MYSQLDATABASE || "railway"
 })
 ws.init(httpServer, port, db)
@@ -90,7 +90,7 @@ async function login (req, res) {
       let contador = await db.query("select count(*) as cuenta from Users where userEmail='"+receivedPOST.email+"' and userPassword='"+receivedPOST.password+"'")
       if (contador[0]["cuenta"]>0){
         let token=createSessionToken();
-        await db.query("update Users set userSessionToken='"+token+"'where userEmail='"+receivedPOST.email+"' and userPassword='"+receivedPOST.password+"'");
+        await db.query("update Users set userSessionToken='"+token+"' where userEmail='"+receivedPOST.email+"' and userPassword='"+receivedPOST.password+"'");
         result = {status: "OK", message: "Sessió iniciada", session_token: token}
       }else{
         result = {status: "ERROR", message: "El correu i/o la contrasenya estan malament"}
@@ -240,8 +240,8 @@ async function setupPayment (req, res) {
               const opciones = { timeZone: "Europe/Madrid" };
               const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
               const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
-              const telefono = await db.query("select userPhoneNumber from Users where userSessionToken='"+receivedPOST.user_id+"'")
-              await db.query("insert into Transactions(destination,amount,token,timeSetup) values ('"+telefono[0]["userPhoneNumber"]+"','"+receivedPOST.amount+"','"+token+"','"+ fechaSQL +"');");
+              const id = await db.query("select id from Users where userSessionToken='"+receivedPOST.user_id+"'")
+              await db.query("insert into Transactions(destination,amount,token,timeSetup) values ('"+id[0]["id"]+"','"+receivedPOST.amount+"','"+token+"','"+ fechaSQL +"');");
               result = {status: "OK", message: "Transacció creada correctament", transaction_token: token};
             } else{
               result = {status: "ERROR", message:"La quantitat no és correcte"};
@@ -332,16 +332,16 @@ async function finishPayment (req, res) {
                           const opciones = { timeZone: "Europe/Madrid" };
                           const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
                           const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
-                          var cantidad=balance[0]["userBalance"]-precio[0]["amount"];
-                          const numOrigen = await db.query("select userPhoneNumber from Users where userSessionToken='"+receivedPOST.user_id+"'");
+                          const cantidad=balance[0]["userBalance"]-precio[0]["amount"];
+                          const id_usu_origen = await db.query("select id from Users where userSessionToken='"+receivedPOST.user_id+"'");
                           await db.query("SET autocommit=0;"); 
                           try{
-                            await db.query("update Transactions set origin ='"+numOrigen[0]["userPhoneNumber"]+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
+                            await db.query("update Transactions set origin ='"+id_usu_origen[0]["id"]+"', accepted="+receivedPOST.accept+", timeFinish='"+fechaSQL+"', timeAccept='"+fechaSQL+"' where token='"+receivedPOST.transaction_token+"'");
                             await db.query("update Users set userBalance='"+cantidad+"' where userSessionToken='"+receivedPOST.user_id+"'");
                             const id_usu_destino = await db.query("select destination from Transactions where token='"+receivedPOST.transaction_token+"'");
-                            const balanceDestino = await db.query("select userBalance from Users where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                            const balanceDestino = await db.query("select userBalance from Users where id='"+id_usu_destino[0]["destination"]+"'");
                             var cantidadDestino=Number(balanceDestino[0]["userBalance"])+Number(precio[0]["amount"]);
-                            await db.query("update Users set userBalance='"+cantidadDestino+"' where userPhoneNumber='"+id_usu_destino[0]["destination"]+"'");
+                            await db.query("update Users set userBalance='"+cantidadDestino+"' where id='"+id_usu_destino[0]["destination"]+"'");
                             await db.query("commit;");
                           } catch(error){
                             await db.query("rollback;");
@@ -389,7 +389,8 @@ async function transaccions (req, res) {
   if (receivedPOST) {
     const contador = await db.query("select count(*) as contador from Users where userPhoneNumber="+receivedPOST.phone)
     if (contador[0]["contador"]>0){
-      const transacciones = await db.query("select * from Transactions where (origin="+receivedPOST.phone+" or destination="+receivedPOST.phone+") and accepted is not null")
+      const id_usu = await db.query("select id from Users where userPhoneNumber="+receivedPOST.phone)
+      const transacciones = await db.query("select * from Transactions where (origin="+id_usu[0]["id"]+" or destination="+id_usu[0]["id"]+") and accepted is not null")
       result = {status: "OK", message: "Transacciones", transactions: transacciones}
     } else{
       result = {status: "ERROR", message: "Aquest usuari no existeix"}
@@ -501,6 +502,34 @@ async function get_profiles_by_range_num_transactions (req, res) {
   if (receivedPOST) {
     const usuaris = await db.query("select users.*, count(distinct transactions.id) as total_transacciones from users inner join (select origin as user_id, id from transactions where accepted is not null union all select destination as user_id, id from transactions where accepted is not null) as transactions on users.id = transactions.user_id group by users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
     result = {status: "OK", message: "Els usuaris", profiles: usuaris}
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
+app.post('/api/get_record_transactions', get_record_transactions)
+async function get_record_transactions (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    if (receivedPOST.session_token.trim()!=""){
+      const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
+      if (contador[0]["contador"]>0){
+        const saldo = await db.query("select userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
+        const id_usu = await db.query("select id from Users where userPhoneNumber="+receivedPOST.phone)
+        const transactions = await db.query("select origin,destination,amount,accepted,timeFinish from Transactions where token='"+receivedPOST.transaction_token+"'")
+        result = {status: "OK", message: "Les transaccions", balance: saldo[0]["userBalance"], transactions: transactions}
+      } else{
+        result = {status: "ERROR", message: "No s'ha trobat la sessió"}
+      }
+    }else{
+      result = {status: "ERROR", message: "Es requereix token de sessio"}
+    }
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' })
