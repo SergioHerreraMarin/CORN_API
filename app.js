@@ -521,8 +521,8 @@ async function get_record_transactions (req, res) {
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
         const saldo = await db.query("select userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
-        const id_usu = await db.query("select id from Users where userPhoneNumber="+receivedPOST.phone)
-        const transactions = await db.query("select origin,destination,amount,accepted,timeFinish from Transactions where token='"+receivedPOST.transaction_token+"'")
+        const id_usu = await db.query("select id from Users where userSessionToken='"+receivedPOST.session_token+"'")
+        const transactions = await db.query("select origin,destination,amount,accepted,timeFinish from Transactions where (origin="+id_usu[0]["id"]+" or destination="+id_usu[0]["id"]+") and accepted is not null")
         result = {status: "OK", message: "Les transaccions", balance: saldo[0]["userBalance"], transactions: transactions}
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
