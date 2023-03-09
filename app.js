@@ -500,7 +500,7 @@ async function get_profiles_by_range_num_transactions (req, res) {
   let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
-    const usuaris = await db.query("select users.*, count(distinct transactions.id) as total_transacciones from users inner join (select origin as user_id, id from transactions where accepted is not null union all select destination as user_id, id from transactions where accepted is not null) as transactions on users.id = transactions.user_id group by users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
+    const usuaris = await db.query("select Users.*, count(distinct Transactions.id) as total_transacciones from Users inner join (select origin as user_id, id from Transactions where accepted is not null union all select destination as user_id, id from Transactions where accepted is not null) as Transactions on Users.id = Transactions.user_id group by Users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
     result = {status: "OK", message: "Els usuaris", profiles: usuaris}
   }
 
@@ -520,10 +520,10 @@ async function get_record_transactions (req, res) {
     if (receivedPOST.session_token.trim()!=""){
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
-        const saldo = await db.query("select userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
+        const usuario = await db.query("select id,userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
         const id_usu = await db.query("select id from Users where userSessionToken='"+receivedPOST.session_token+"'")
         const transactions = await db.query("select origin,destination,amount,accepted,timeFinish from Transactions where (origin="+id_usu[0]["id"]+" or destination="+id_usu[0]["id"]+") and accepted is not null")
-        result = {status: "OK", message: "Les transaccions", balance: saldo[0]["userBalance"], transactions: transactions}
+        result = {status: "OK", message: "Les transaccions", id: usuario[0]["id"], balance: usuario[0]["userBalance"], transactions: transactions}
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
       }
@@ -535,4 +535,61 @@ async function get_record_transactions (req, res) {
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 
+}
+
+// Define routes
+app.post('/api/send_id', send_id)
+async function send_id (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+    if (receivedPOST.session_token.trim()!=""){
+      const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
+      if (contador[0]["contador"]>0){
+        const fileBuffer = Buffer.from(receivedPOST.base64, 'base64');
+        const path = "./private"
+        const nameFile=createNameFile();
+        await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
+        await fs.writeFile(`${path}/${nameFile}`, fileBuffer)
+        
+        await wait(1500)
+        result = { status: "OK", message: "S" } 
+      } else{
+        result = {status: "ERROR", message: "No s'ha trobat la sessió"}
+      }
+    }else{
+      result = {status: "ERROR", message: "Es requereix token de sessio"}
+    }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+function createNameFile(){
+  let charsList = [];
+  let tokenSize = 41;
+  let token = "";
+
+  for(i = 0; i < 10; i ++){
+    charsList.push(i);
+  }
+
+  for(i = 65; i <= 90; i++) {
+    charsList.push(String.fromCharCode(i));
+  }
+
+  for(i = 97; i <= 122; i++) {
+    charsList.push(String.fromCharCode(i));
+  }
+  
+  for(i = 0; i < tokenSize - 1; i++){
+    let randomNum = Math.round(Math.random()*(charsList.length - 1));
+    token += charsList[randomNum];
+  }
+
+  return token;
 }
