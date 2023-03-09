@@ -521,8 +521,7 @@ async function get_record_transactions (req, res) {
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
         const usuario = await db.query("select id,userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
-        const id_usu = await db.query("select id from Users where userSessionToken='"+receivedPOST.session_token+"'")
-        const transactions = await db.query("select origin,destination,amount,accepted,timeFinish from Transactions where (origin="+id_usu[0]["id"]+" or destination="+id_usu[0]["id"]+") and accepted is not null")
+        const transactions = await db.query("select Transactions.origin, Users.userPhoneNumber as originPhoneNumber, Transactions.destination, Users_2.userPhoneNumber as destinationPhoneNumber, Transactions.amount, Transactions.accepted, Transactions.timeFinish from Transactions left join Users on Transactions.origin = Users.id left join Users as Users_2 on Transactions.destination = Users_2.id where (origin=1 or destination=1) and accepted is not null;");
         result = {status: "OK", message: "Les transaccions", id: usuario[0]["id"], balance: usuario[0]["userBalance"], transactions: transactions}
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
@@ -548,14 +547,17 @@ async function send_id (req, res) {
     if (receivedPOST.session_token.trim()!=""){
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
-        const fileBuffer = Buffer.from(receivedPOST.base64, 'base64');
+        const fileBuffer = Buffer.from(receivedPOST.picture1, 'base64');
+        const fileBuffer2 = Buffer.from(receivedPOST.picture2, 'base64');
         const path = "./private"
-        const nameFile=createNameFile();
+        const nameFile=`${createNameFile()}.jpg`;
+        const nameFile2=`${createNameFile()}.jpg`;
         await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
         await fs.writeFile(`${path}/${nameFile}`, fileBuffer)
-        
-        await wait(1500)
-        result = { status: "OK", message: "S" } 
+        await fs.writeFile(`${path}/${nameFile2}`, fileBuffer2)
+        await db.query("update Users set userDNIFront='"+nameFile+"', userDNIBack='"+nameFile2+"' where userSessionToken='"+receivedPOST.session_token+"'");
+
+        result = { status: "OK", message: "S'han desat les imatges correctament" } 
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
       }
@@ -592,4 +594,30 @@ function createNameFile(){
   }
 
   return token;
+}
+
+// Define routes
+app.post('/api/get_id', get_id)
+async function get_id (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+      const contador = await db.query("select count(*) as contador from Users where userPhoneNumber='"+receivedPOST.phone+"'")
+      if (contador[0]["contador"]>0){
+          const dni = await db.query("select userDNIFront, userDNIBack from Users where userPhoneNumber='"+receivedPOST.phone+"'")
+          let nameFront = dni[0]["userDNIFront"];
+          let nameBack = dni[0]["userDNIBack"];
+          let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
+          let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
+          result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back} 
+      } else{
+        result = {status: "ERROR", message: "No s'ha trobat la sessió"}
+      }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
 }
