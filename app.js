@@ -639,8 +639,8 @@ async function get_id (req, res) {
 }
 
 // Define routes
-app.post('/api/upload_status', get_id)
-async function get_id (req, res) {
+app.post('/api/upload_status', upload_status)
+async function upload_status (req, res) {
 
   let receivedPOST = await post.getPostObject(req)
   let result = { status: "ERROR", message: "Unkown type" }
@@ -649,7 +649,6 @@ async function get_id (req, res) {
       const contador = await db.query("select count(*) as contador from Users where userPhoneNumber='"+receivedPOST.phone+"'")
       if (contador[0]["contador"]>0){
           await db.query("update Users set userStatus='"+receivedPOST.status+"' where userPhoneNumber='"+receivedPOST.phone+"'")
-          
           result = { status: "OK", message: "S'ha actualitzat l'estat de l'usuari"} 
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
