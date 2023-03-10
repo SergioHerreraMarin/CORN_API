@@ -521,7 +521,7 @@ async function get_record_transactions (req, res) {
       const contador = await db.query("select count(*) as contador from Users where userSessionToken='"+receivedPOST.session_token+"'")
       if (contador[0]["contador"]>0){
         const usuario = await db.query("select id,userBalance from Users where userSessionToken='"+receivedPOST.session_token+"'")
-        const transactions = await db.query("select Transactions.origin, Users.userPhoneNumber as originPhoneNumber, Transactions.destination, Users_2.userPhoneNumber as destinationPhoneNumber, Transactions.amount, Transactions.accepted, Transactions.timeFinish from Transactions left join Users on Transactions.origin = Users.id left join Users as Users_2 on Transactions.destination = Users_2.id where (origin=1 or destination=1) and accepted is not null;");
+        const transactions = await db.query("select Transactions.origin, Users.userPhoneNumber as originPhoneNumber, Transactions.destination, Users_2.userPhoneNumber as destinationPhoneNumber, Transactions.amount, Transactions.accepted, Transactions.timeFinish from Transactions left join Users on Transactions.origin = Users.id left join Users as Users_2 on Transactions.destination = Users_2.id where (origin="+usuario[0]["id"]+" or destination="+usuario[0]["id"]+") and accepted is not null;");
         result = {status: "OK", message: "Les transaccions", id: usuario[0]["id"], balance: usuario[0]["userBalance"], transactions: transactions}
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
@@ -550,8 +550,24 @@ async function send_id (req, res) {
         const fileBuffer = Buffer.from(receivedPOST.picture1, 'base64');
         const fileBuffer2 = Buffer.from(receivedPOST.picture2, 'base64');
         const path = "./private"
-        const nameFile=`${createNameFile()}.jpg`;
-        const nameFile2=`${createNameFile()}.jpg`;
+        const usuarios = await db.query("select userDNIFront,userDNIBack from Users")
+        let nameFile=`${createNameFile()}.jpg`;
+        let nameFile2=`${createNameFile()}.jpg`;
+        let flag=false;
+        while(!flag){
+          flag=true
+          for (let i=0; i<usuarios.length;i++){
+            if (nameFile==usuarios[i]["userDNIFront"] || nameFile==usuarios[i]["userDNIBack"]){
+              nameFile=`${createNameFile()}.jpg`;
+              flag=false;
+              break;
+            } else if (nameFile2==usuarios[i]["userDNIFront"] || nameFile2==usuarios[i]["userDNIBack"]){
+              nameFile2=`${createNameFile()}.jpg`;
+              flag=false;
+              break;
+            }
+          }
+        }
         await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
         await fs.writeFile(`${path}/${nameFile}`, fileBuffer)
         await fs.writeFile(`${path}/${nameFile2}`, fileBuffer2)
@@ -612,6 +628,29 @@ async function get_id (req, res) {
           let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
           let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
           result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back} 
+      } else{
+        result = {status: "ERROR", message: "No s'ha trobat l'usuari"}
+      }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+
+}
+
+// Define routes
+app.post('/api/upload_status', get_id)
+async function get_id (req, res) {
+
+  let receivedPOST = await post.getPostObject(req)
+  let result = { status: "ERROR", message: "Unkown type" }
+
+  if (receivedPOST) {
+      const contador = await db.query("select count(*) as contador from Users where userPhoneNumber='"+receivedPOST.phone+"'")
+      if (contador[0]["contador"]>0){
+          await db.query("update Users set userStatus='"+receivedPOST.status+"' where userPhoneNumber='"+receivedPOST.phone+"'")
+          
+          result = { status: "OK", message: "S'ha actualitzat l'estat de l'usuari"} 
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
       }
