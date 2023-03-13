@@ -571,7 +571,11 @@ async function send_id (req, res) {
         await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
         await fs.writeFile(`${path}/${nameFile}`, fileBuffer)
         await fs.writeFile(`${path}/${nameFile2}`, fileBuffer2)
-        await db.query("update Users set userStatus='A_VERIFICAR', userDNIFront='"+nameFile+"', userDNIBack='"+nameFile2+"' where userSessionToken='"+receivedPOST.session_token+"'");
+        const fecha = new Date();
+        const opciones = { timeZone: "Europe/Madrid" };
+        const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
+        const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
+        await db.query("update Users set userStatusModifyTime='"+fechaSQL+"', userStatus='A_VERIFICAR', userDNIFront='"+nameFile+"', userDNIBack='"+nameFile2+"' where userSessionToken='"+receivedPOST.session_token+"'");
 
         result = { status: "OK", message: "S'han desat les imatges correctament" } 
       } else{
@@ -652,7 +656,11 @@ async function upload_status (req, res) {
   if (receivedPOST) {
       const contador = await db.query("select count(*) as contador from Users where userPhoneNumber='"+receivedPOST.phone+"'")
       if (contador[0]["contador"]>0){
-          await db.query("update Users set userStatus='"+receivedPOST.status+"' where userPhoneNumber='"+receivedPOST.phone+"'")
+          const fecha = new Date();
+          const opciones = { timeZone: "Europe/Madrid" };
+          const fechaEspaña = fecha.toLocaleString("es-ES", opciones);
+          const fechaSQL = fechaEspaña.replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, "$3-$2-$1 $4:$5:$6");
+          await db.query("update Users set userStatusModifyTime='"+fechaSQL+"', userStatus='"+receivedPOST.status+"' where userPhoneNumber='"+receivedPOST.phone+"'")
           result = { status: "OK", message: "S'ha actualitzat l'estat de l'usuari"} 
       } else{
         result = {status: "ERROR", message: "No s'ha trobat la sessió"}
