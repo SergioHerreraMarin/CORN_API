@@ -571,7 +571,7 @@ async function send_id (req, res) {
         await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
         await fs.writeFile(`${path}/${nameFile}`, fileBuffer)
         await fs.writeFile(`${path}/${nameFile2}`, fileBuffer2)
-        await db.query("update Users set userDNIFront='"+nameFile+"', userDNIBack='"+nameFile2+"' where userSessionToken='"+receivedPOST.session_token+"'");
+        await db.query("update Users set userStatus='A_VERIFICAR', userDNIFront='"+nameFile+"', userDNIBack='"+nameFile2+"' where userSessionToken='"+receivedPOST.session_token+"'");
 
         result = { status: "OK", message: "S'han desat les imatges correctament" } 
       } else{
