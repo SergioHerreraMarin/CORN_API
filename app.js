@@ -500,7 +500,7 @@ async function get_profiles_by_range_num_transactions (req, res) {
   let result = { status: "ERROR", message: "Unkown type" }
 
   if (receivedPOST) {
-    const usuaris = await db.query("select Users.*, count(Transactions.id) as total_transacciones from Users inner join (select origin as user_id, id from Transactions where accepted is not null union all select destination as user_id, id from Transactions where accepted is not null) as Transactions on Users.id = Transactions.user_id group by Users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
+    const usuaris = await db.query("select Users.*, count(distinct Transactions.id) as total_transacciones from Users inner join (select origin as user_id, id from Transactions where accepted is not null union all select destination as user_id, id from Transactions where accepted is not null) as Transactions on Users.id = Transactions.user_id group by Users.id having total_transacciones between "+receivedPOST.numMin+" AND "+receivedPOST.numMax+";")
     result = {status: "OK", message: "Els usuaris", profiles: usuaris}
   }
 
