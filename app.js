@@ -623,11 +623,15 @@ async function get_id (req, res) {
       const contador = await db.query("select count(*) as contador from Users where userPhoneNumber='"+receivedPOST.phone+"'")
       if (contador[0]["contador"]>0){
           const dni = await db.query("select userDNIFront, userDNIBack from Users where userPhoneNumber='"+receivedPOST.phone+"'")
-          let nameFront = dni[0]["userDNIFront"];
-          let nameBack = dni[0]["userDNIBack"];
-          let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
-          let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
-          result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back} 
+          if (dni[0]["userDNIFront"]!=null && dni[0]["userDNIBack"]!=null){
+            let nameFront = dni[0]["userDNIFront"];
+            let nameBack = dni[0]["userDNIBack"];
+            let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
+            let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
+            result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back} 
+          }else{
+            result = {status: "ERROR", message: "No tenen imatges"}
+          } 
       } else{
         result = {status: "ERROR", message: "No s'ha trobat l'usuari"}
       }
