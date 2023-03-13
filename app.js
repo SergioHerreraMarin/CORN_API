@@ -626,27 +626,9 @@ async function get_id (req, res) {
           if (dni[0]["userDNIFront"]!=null && dni[0]["userDNIBack"]!=null){
             let nameFront = dni[0]["userDNIFront"];
             let nameBack = dni[0]["userDNIBack"];
-            let imagenFront=false;
-            let imagenBack=false;
-            fetch(`./private/${nameFront}`).then(response => {
-              if(response.ok){
-                imagenFront=true;
-                fetch(`./private/${nameBack}`).then(response => {
-                  if(response.ok){
-                    imagenBack=true;
-                  }else{
-                    result = {status: "ERROR", message: "No es troba la imatge del dni (darrere)"}
-                  }
-                })
-              }else{
-                result = {status: "ERROR", message: "No es troba la imatge del dni (davant)"}
-              }
-            })
-            if (imagenFront==true && imagenBack==true){
-              let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
-              let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
-              result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back}
-            }      
+            let base64Front = await fs.readFile(`./private/${nameFront}`, { encoding: 'base64'})
+            let base64Back = await fs.readFile(`./private/${nameBack}`, { encoding: 'base64'})
+            result = { status: "OK", message: "Aqui esta el base64 de les dues imatges", imageFront: base64Front, imageBack: base64Back} 
           }else{
             result = {status: "ERROR", message: "No tenen imatges"}
           } 
