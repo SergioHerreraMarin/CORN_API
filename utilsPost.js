@@ -35,11 +35,13 @@ class Obj {
                         let keys = Object.keys(objPost)
                         for (let cnt = 0; cnt < keys.length; cnt = cnt + 1) {
                             let value = objPost[keys[cnt]]
-                            let valueInt = parseInt(value)
-                            let valueFlt = parseFloat(value)
-                            if (valueInt && valueFlt) {
-                                if (valueInt == valueFlt) objPost[keys[cnt]] = valueInt
-                                else objPost[keys[cnt]] = valueFlt
+                            if (!isNaN(value)) { // Check if is a number (example: "2ABC" is not a 2)
+                                let valueInt = parseInt(value)
+                                let valueFlt = parseFloat(value)
+                                if (valueInt && valueFlt) {
+                                    if (valueInt == valueFlt) objPost[keys[cnt]] = valueInt
+                                    else objPost[keys[cnt]] = valueFlt
+                                }
                             }
                         }
                         return resolve(objPost)
@@ -51,6 +53,24 @@ class Obj {
                 }
             })
         })
+    }
+
+    static getCookiesObject (req) {
+
+        // Get cookies from request
+        const cookies = req.headers?.cookie
+        if (!cookies) { return  null }
+
+        // Parse cookies into an object
+        const cookiesArray = cookies.split(';')
+        const cookiesObject = {}
+        cookiesArray.forEach((cookie) => {
+            const cookieArray = cookie.split('=')
+            if (cookieArray.length == 2) {
+                cookiesObject[cookieArray[0].trim()] = cookieArray[1].trim()
+            }
+        })
+        return cookiesObject
     }
 }
 
